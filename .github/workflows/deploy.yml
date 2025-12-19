@@ -47,6 +47,7 @@ jobs:
           mkdir -p ~/docker-stack
           cd ~/docker-stack
 
+
           # Traer archivos desde repo (simple forma)
           git init
           git remote add origin https://github.com/PABLO_USERNAME/aws-docker-stack.git
