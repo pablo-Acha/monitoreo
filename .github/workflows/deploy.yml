@@ -1,0 +1,58 @@
+name: Deploy Docker Stack to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Install SSH key
+      run: |
+        echo "${{ secrets.EC2_KEY }}" > key.pem
+        chmod 600 key.pem
+
+    - name: Build and push Docker images
+      run: |
+        # Si tienes imágenes que subir a Docker Hub
+        docker login -u ${{ secrets.DOCKERHUB_USER }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+        docker compose build
+        docker compose push
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_KEY }}
+        script: |
+          # Instalar Docker si no existe
+          if ! command -v docker &> /dev/null; then
+            sudo yum update -y
+            sudo yum install -y yum-utils curl
+            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            sudo usermod -aG docker $USER
+          fi
+
+          # Ir al directorio donde estará tu stack
+          mkdir -p ~/docker-stack
+          cd ~/docker-stack
+
+          # Traer archivos desde repo (simple forma)
+          git init
+          git remote add origin https://github.com/PABLO_USERNAME/aws-docker-stack.git
+          git fetch
+          git reset --hard origin/main
+
+          # Levantar contenedores
+          docker compose down
+          docker compose up -d

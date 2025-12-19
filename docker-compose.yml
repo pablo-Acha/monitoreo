@@ -26,11 +26,6 @@ services:
     ports:
       - "9100:9100"
 
-  python-app:
-    build: ./python-app
-    container_name: python-app
-    ports:
-      - "8000:8000"
   loki:
     image: grafana/loki:2.9.4
     container_name: loki
