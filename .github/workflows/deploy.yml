@@ -13,15 +13,12 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Install SSH key
+    - name: Login to Docker Hub
       run: |
-        echo "${{ secrets.EC2_KEY }}" > key.pem
-        chmod 600 key.pem
+        echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin
 
-    - name: Build and push Docker images
+    - name: Build and push images
       run: |
-        # Si tienes imágenes que subir a Docker Hub
-        docker login -u ${{ secrets.DOCKERHUB_USER }} -p ${{ secrets.DOCKERHUB_TOKEN }}
         docker compose build
         docker compose push
 
@@ -32,30 +29,28 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
         script: |
-          # Instalar Docker si no existe
-          if ! command -v docker &> /dev/null; then
-            sudo yum update -y
-            sudo yum install -y yum-utils curl
-            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-            sudo systemctl start docker
-            sudo systemctl enable docker
-            sudo usermod -aG docker $USER
+          set -e
+
+          # Instalar dependencias
+          sudo yum install -y git docker
+          sudo systemctl start docker
+          sudo systemctl enable docker
+
+          # Docker compose plugin
+          if ! docker compose version; then
+            sudo mkdir -p /usr/local/lib/docker/cli-plugins
+            sudo curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 \
+              -o /usr/local/lib/docker/cli-plugins/docker-compose
+            sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
           fi
 
-          # Ir al directorio donde estará tu stack
-          mkdir -p ~/docker-stack
+          # Clonar repo vía SSH
+          if [ ! -d ~/docker-stack ]; then
+            git clone https://github.com/pablo-Acha/monitoreo.git
+          fi
+
           cd ~/docker-stack
+          git pull origin main
 
-
-          # Traer archivos desde repo (simple forma)
-          git init
-          git remote add origin https://github.com/PABLO_USERNAME/aws-docker-stack.git
-          git fetch
-          git reset --hard origin/main
-
-
-
-          # Levantar contenedores
           docker compose down
           docker compose up -d
