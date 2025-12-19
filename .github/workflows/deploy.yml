@@ -54,6 +54,7 @@ jobs:
           git fetch
           git reset --hard origin/main
 
+
           # Levantar contenedores
           docker compose down
           docker compose up -d
